@@ -1,0 +1,190 @@
+/* Main page */
+.app {
+  width: 100%;
+  min-height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+  background: #ffffff;
+}
+
+/* Main heading */
+.app h1 {
+  margin: 10px 0 20px;
+  font-size: 42px;
+  font-weight: 700;
+  color: #222;
+}
+
+/* Main buttons */
+.app > button {
+  margin: 0 8px 28px;
+  padding: 14px 25px;
+  border: none;
+  border-radius: 6px;
+  background: #2864e8;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.app > button:hover {
+  background: #174fc5;
+}
+
+/* Add / Edit form */
+.form-container {
+  width: 90%;
+  max-width: 900px;
+  margin: 0 auto 30px;
+  padding: 25px;
+  box-sizing: border-box;
+}
+
+.form-container h2 {
+  margin-bottom: 20px;
+  color: #222;
+}
+
+/* Form inputs */
+.form-container input,
+.form-container select,
+.form-container textarea {
+  width: 100%;
+  padding: 13px;
+  margin: 8px 0;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.form-container textarea {
+  height: 90px;
+  resize: vertical;
+}
+
+.form-container label {
+  display: block;
+  text-align: left;
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+/* Form buttons */
+.form-container button {
+  padding: 12px 22px;
+  margin: 10px 5px;
+  border: none;
+  border-radius: 6px;
+  background: #2864e8;
+  color: white;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.form-container button:hover {
+  background: #174fc5;
+}
+
+/* Student list */
+.student-list {
+  width: 100%;
+  margin: 0 auto;
+  overflow-x: auto;
+}
+
+.student-list h2 {
+  margin: 0 0 20px;
+  color: #222;
+}
+
+/* Search box */
+.student-list > input {
+  width: 350px;
+  max-width: 90%;
+  padding: 12px 15px;
+  margin-bottom: 20px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+/* Table */
+.student-list table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1200px;
+}
+
+/* Table header */
+.student-list th {
+  padding: 12px 8px;
+  background: #2864e8;
+  color: white;
+  border: 1px solid #ddd;
+  font-size: 15px;
+  text-align: center;
+}
+
+/* Table cells */
+.student-list td {
+  padding: 12px 8px;
+  border: 1px solid #ddd;
+  color: #7d8ba3;
+  font-size: 14px;
+  text-align: center;
+  background: white;
+}
+
+/* Smaller rows */
+.student-list tr {
+  height: 85px;
+}
+
+/* Action buttons */
+.student-list td button {
+  display: block;
+  width: 75px;
+  margin: 5px auto;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 5px;
+  background: #2864e8;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.student-list td button:hover {
+  background: #210656;
+}
+
+/* No students message */
+.student-list p {
+  font-size: 18px;
+  color: #7d8ba3;
+}
+
+
+/* Mobile screen */
+@media (max-width: 768px) {
+
+  .app {
+    padding: 15px;
+  }
+
+  .app h1 {
+    font-size: 35px;
+  }
+
+  .app > button {
+    font-size: 16px;
+    padding: 12px 18px;
+  }
+
+  .form-container {
+    width: 100%;
+  }
+
+}
