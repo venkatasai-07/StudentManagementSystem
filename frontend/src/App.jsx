@@ -108,6 +108,14 @@ function App() {
 
   const [editingId, setEditingId] = useState(null);
 
+  useEffect(() => {
+    if (isLoggedIn && showStudents) {
+      handleViewStudents(1);
+    }
+  }, [search, departmentFilter, courseFilter]);
+
+
+
   // =========================
   // STUDENT FORM
   // =========================
@@ -253,8 +261,24 @@ function App() {
     try {
       const token = sessionStorage.getItem("token");
 
+      const params = new URLSearchParams();
+
+      if (search.trim() !== "") {
+        params.append("search", search.trim());
+      }
+
+      if (departmentFilter !== "") {
+        params.append("department", departmentFilter);
+      }
+
+      if (courseFilter !== "") {
+        params.append("course", courseFilter);
+      }
+
+      params.append("page", page);
+
       const response = await fetch(
-        `${API_URL}?page=${page}`,
+        `${API_URL}?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -505,41 +529,10 @@ function App() {
   // SEARCH + FILTER
   // =========================
 
-  const filteredStudents = (students || []).filter(
-    (student) => {
-      const searchText = search.toLowerCase();
+  // Filtering is handled by Django so search/filter works
+  // across all paginated students.
+  const filteredStudents = students || [];
 
-      const matchesSearch =
-        (student.student_id || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        (student.name || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        (student.email || "")
-          .toLowerCase()
-          .includes(searchText) ||
-        (student.department || "")
-          .toLowerCase()
-          .includes(searchText);
-
-      const matchesDepartment =
-        departmentFilter === "" ||
-        (student.department || "").toLowerCase() ===
-          departmentFilter.toLowerCase();
-
-      const matchesCourse =
-        courseFilter === "" ||
-        (student.course || "").toLowerCase() ===
-          courseFilter.toLowerCase();
-
-      return (
-        matchesSearch &&
-        matchesDepartment &&
-        matchesCourse
-      );
-    }
-  );
 
   // =========================
   // LOGIN SCREEN
