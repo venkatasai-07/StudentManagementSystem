@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000/api/students/";
@@ -10,7 +10,7 @@ function App() {
   // =========================
 
   const [isLoggedIn, setIsLoggedIn] = useState(
-    !!localStorage.getItem("token")
+    !!sessionStorage.getItem("token")
   );
 
   const [username, setUsername] = useState("");
@@ -46,8 +46,8 @@ function App() {
         return;
       }
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("username", data.username);
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("username", data.username);
 
       setIsLoggedIn(true);
       setUsername("");
@@ -63,12 +63,15 @@ function App() {
   // =========================
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("username");
 
     setIsLoggedIn(false);
     setStudents([]);
     setShowStudents(false);
+    setCurrentPage(1);
+    setTotalPages(1);
+    setTotalStudentCount(0);
   };
 
   // =========================
@@ -80,12 +83,34 @@ function App() {
 
   const [students, setStudents] = useState([]);
 
-  // Search and filters
+  // =========================
+  // PAGINATION STATES
+  // =========================
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalStudentCount, setTotalStudentCount] = useState(0);
+
+  // Load students automatically when the user is logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      handleViewStudents(1);
+    }
+  }, [isLoggedIn]);
+
+  // =========================
+  // SEARCH AND FILTERS
+  // =========================
+
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
 
   const [editingId, setEditingId] = useState(null);
+
+  // =========================
+  // STUDENT FORM
+  // =========================
 
   const [student, setStudent] = useState({
     student_id: "",
@@ -104,17 +129,17 @@ function App() {
   // DASHBOARD STATISTICS
   // =========================
 
-  const totalStudents = students.length;
+  const totalStudents = totalStudentCount;
 
   const totalDepartments = new Set(
-    students
-      .map((student) => student.department.toLowerCase())
+    (students || [])
+      .map((student) => student.department?.toLowerCase() || "")
       .filter((department) => department !== "")
   ).size;
 
   const totalCourses = new Set(
-    students
-      .map((student) => student.course.toLowerCase())
+    (students || [])
+      .map((student) => student.course?.toLowerCase() || "")
       .filter((course) => course !== "")
   ).size;
 
@@ -221,6 +246,101 @@ function App() {
   };
 
   // =========================
+  // VIEW STUDENTS
+  // =========================
+
+  const handleViewStudents = async (page = 1) => {
+    try {
+      const token = sessionStorage.getItem("token");
+
+      const response = await fetch(
+        `${API_URL}?page=${page}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      console.log("Student API response:", data);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          alert("Your login session has expired. Please login again.");
+
+          sessionStorage.removeItem("token");
+          sessionStorage.removeItem("username");
+
+          setIsLoggedIn(false);
+          return;
+        }
+
+        alert("Failed to load students.");
+        return;
+      }
+
+      // =========================
+      // PAGINATED RESPONSE
+      // =========================
+
+      if (
+        data &&
+        typeof data === "object" &&
+        Array.isArray(data.results)
+      ) {
+        setStudents(data.results);
+
+        setTotalStudentCount(data.count || 0);
+
+        setTotalPages(
+          data.count
+            ? Math.ceil(data.count / 5)
+            : 1
+        );
+
+        setCurrentPage(page);
+      }
+
+      // =========================
+      // NORMAL ARRAY RESPONSE
+      // =========================
+
+      else if (Array.isArray(data)) {
+        setStudents(data);
+
+        setTotalStudentCount(data.length);
+
+        setTotalPages(1);
+
+        setCurrentPage(1);
+      }
+
+      // =========================
+      // INVALID RESPONSE
+      // =========================
+
+      else {
+        console.error(
+          "Unexpected API response:",
+          data
+        );
+
+        setStudents([]);
+        setTotalStudentCount(0);
+        setTotalPages(1);
+      }
+
+      setShowStudents(true);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to connect to Django server.");
+    }
+  };
+
+  // =========================
   // ADD / UPDATE STUDENT
   // =========================
 
@@ -234,21 +354,30 @@ function App() {
     try {
       let response;
 
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
 
-      // EDIT
+      // =========================
+      // UPDATE
+      // =========================
+
       if (editingId !== null) {
-        response = await fetch(`${API_URL}${editingId}/`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Token ${token}`,
-          },
-          body: JSON.stringify(student),
-        });
+        response = await fetch(
+          `${API_URL}${editingId}/`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Token ${token}`,
+            },
+            body: JSON.stringify(student),
+          }
+        );
       }
 
+      // =========================
       // ADD
+      // =========================
+
       else {
         response = await fetch(API_URL, {
           method: "POST",
@@ -268,55 +397,33 @@ function App() {
         return;
       }
 
-      // UPDATE
+      // =========================
+      // UPDATE SUCCESS
+      // =========================
+
       if (editingId !== null) {
-        setStudents(
-          students.map((item) =>
-            item.id === editingId ? data : item
+        setStudents((previousStudents) =>
+          previousStudents.map((item) =>
+            item.id === editingId
+              ? data
+              : item
           )
         );
 
         alert("Student updated successfully!");
       }
 
-      // ADD
+      // =========================
+      // ADD SUCCESS
+      // =========================
+
       else {
-        setStudents([...students, data]);
+        await handleViewStudents(currentPage);
 
         alert("Student saved successfully!");
       }
 
       clearForm();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to connect to Django server.");
-    }
-  };
-
-  // =========================
-  // VIEW STUDENTS
-  // =========================
-
-  const handleViewStudents = async () => {
-    try {
-      const token = localStorage.getItem("token");
-
-      const response = await fetch(API_URL, {
-        method: "GET",
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert("Failed to load students.");
-        return;
-      }
-
-      setStudents(data);
-      setShowStudents(true);
     } catch (error) {
       console.error(error);
       alert("Failed to connect to Django server.");
@@ -359,25 +466,33 @@ function App() {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
 
-      const response = await fetch(`${API_URL}${id}/`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_URL}${id}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         alert("Failed to delete student.");
         return;
       }
 
-      setStudents(
-        students.filter(
-          (student) => student.id !== id
-        )
-      );
+      let pageToLoad = currentPage;
+
+      if (
+        students.length === 1 &&
+        currentPage > 1
+      ) {
+        pageToLoad = currentPage - 1;
+      }
+
+      await handleViewStudents(pageToLoad);
 
       alert("Student deleted successfully!");
     } catch (error) {
@@ -390,39 +505,41 @@ function App() {
   // SEARCH + FILTER
   // =========================
 
-  const filteredStudents = students.filter((student) => {
-    const searchText = search.toLowerCase();
+  const filteredStudents = (students || []).filter(
+    (student) => {
+      const searchText = search.toLowerCase();
 
-    const matchesSearch =
-      student.student_id
-        .toLowerCase()
-        .includes(searchText) ||
-      student.name
-        .toLowerCase()
-        .includes(searchText) ||
-      student.email
-        .toLowerCase()
-        .includes(searchText) ||
-      student.department
-        .toLowerCase()
-        .includes(searchText);
+      const matchesSearch =
+        (student.student_id || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        (student.name || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        (student.email || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        (student.department || "")
+          .toLowerCase()
+          .includes(searchText);
 
-    const matchesDepartment =
-      departmentFilter === "" ||
-      student.department.toLowerCase() ===
-        departmentFilter.toLowerCase();
+      const matchesDepartment =
+        departmentFilter === "" ||
+        (student.department || "").toLowerCase() ===
+          departmentFilter.toLowerCase();
 
-    const matchesCourse =
-      courseFilter === "" ||
-      student.course.toLowerCase() ===
-        courseFilter.toLowerCase();
+      const matchesCourse =
+        courseFilter === "" ||
+        (student.course || "").toLowerCase() ===
+          courseFilter.toLowerCase();
 
-    return (
-      matchesSearch &&
-      matchesDepartment &&
-      matchesCourse
-    );
-  });
+      return (
+        matchesSearch &&
+        matchesDepartment &&
+        matchesCourse
+      );
+    }
+  );
 
   // =========================
   // LOGIN SCREEN
@@ -432,7 +549,9 @@ function App() {
     return (
       <div className="app">
 
-        <h1>Student Management System</h1>
+        <h1>
+          Student Management System
+        </h1>
 
         <div className="form-container">
 
@@ -483,17 +602,21 @@ function App() {
   return (
     <div className="app">
 
-      <h1>Student Management System</h1>
+      <h1>
+        Student Management System
+      </h1>
 
       <p>
-        Welcome, {localStorage.getItem("username")}
+        Welcome, {sessionStorage.getItem("username")}
       </p>
 
       <button onClick={handleLogout}>
         Logout
       </button>
 
-      {/* DASHBOARD */}
+      {/* =========================
+          DASHBOARD
+      ========================= */}
 
       <div className="dashboard">
 
@@ -503,18 +626,20 @@ function App() {
         </div>
 
         <div className="dashboard-card">
-          <h3>Total Departments</h3>
+          <h3>Departments on Page</h3>
           <p>{totalDepartments}</p>
         </div>
 
         <div className="dashboard-card">
-          <h3>Total Courses</h3>
+          <h3>Courses on Page</h3>
           <p>{totalCourses}</p>
         </div>
 
       </div>
 
-      {/* MAIN BUTTONS */}
+      {/* =========================
+          MAIN BUTTONS
+      ========================= */}
 
       <button
         onClick={() => {
@@ -525,11 +650,17 @@ function App() {
         Add Student
       </button>
 
-      <button onClick={handleViewStudents}>
+      <button
+        onClick={() =>
+          handleViewStudents(1)
+        }
+      >
         View Students
       </button>
 
-      {/* FORM */}
+      {/* =========================
+          FORM
+      ========================= */}
 
       {showForm && (
         <div className="form-container">
@@ -578,7 +709,9 @@ function App() {
               required
             />
 
-            <label>Date of Birth</label>
+            <label>
+              Date of Birth
+            </label>
 
             <input
               type="date"
@@ -609,6 +742,7 @@ function App() {
               <option value="Other">
                 Other
               </option>
+
             </select>
 
             <input
@@ -664,17 +798,20 @@ function App() {
             </button>
 
           </form>
+
         </div>
       )}
 
-      {/* STUDENT LIST */}
+      {/* =========================
+          STUDENT LIST
+      ========================= */}
 
       {showStudents && (
         <div className="student-list">
 
           <h2>Student List</h2>
 
-          {/* Search */}
+          {/* SEARCH */}
 
           <input
             type="text"
@@ -685,12 +822,14 @@ function App() {
             }
           />
 
-          {/* Department Filter */}
+          {/* DEPARTMENT FILTER */}
 
           <select
             value={departmentFilter}
             onChange={(event) =>
-              setDepartmentFilter(event.target.value)
+              setDepartmentFilter(
+                event.target.value
+              )
             }
           >
             <option value="">
@@ -716,14 +855,17 @@ function App() {
             <option value="CIVIL">
               CIVIL
             </option>
+
           </select>
 
-          {/* Course Filter */}
+          {/* COURSE FILTER */}
 
           <select
             value={courseFilter}
             onChange={(event) =>
-              setCourseFilter(event.target.value)
+              setCourseFilter(
+                event.target.value
+              )
             }
           >
             <option value="">
@@ -745,9 +887,10 @@ function App() {
             <option value="MBA">
               MBA
             </option>
+
           </select>
 
-          {/* Student Table */}
+          {/* STUDENT TABLE */}
 
           {filteredStudents.length === 0 ? (
 
@@ -786,7 +929,11 @@ function App() {
                     <tr key={student.id}>
 
                       <td>
-                        {index + 1}
+                        {((
+                          currentPage - 1
+                        ) * 5) +
+                          index +
+                          1}
                       </td>
 
                       <td>
@@ -833,7 +980,9 @@ function App() {
 
                         <button
                           onClick={() =>
-                            editStudent(student)
+                            editStudent(
+                              student
+                            )
                           }
                         >
                           Edit
@@ -841,7 +990,9 @@ function App() {
 
                         <button
                           onClick={() =>
-                            deleteStudent(student.id)
+                            deleteStudent(
+                              student.id
+                            )
                           }
                         >
                           Delete
@@ -858,6 +1009,47 @@ function App() {
 
             </table>
 
+          )}
+
+          {/* =========================
+              PAGINATION
+          ========================= */}
+
+          {totalPages > 1 && (
+            <div className="pagination">
+
+              <button
+                onClick={() =>
+                  handleViewStudents(
+                    currentPage - 1
+                  )
+                }
+                disabled={
+                  currentPage === 1
+                }
+              >
+                Previous
+              </button>
+
+              <span>
+                Page {currentPage} of{" "}
+                {totalPages}
+              </span>
+
+              <button
+                onClick={() =>
+                  handleViewStudents(
+                    currentPage + 1
+                  )
+                }
+                disabled={
+                  currentPage === totalPages
+                }
+              >
+                Next
+              </button>
+
+            </div>
           )}
 
         </div>

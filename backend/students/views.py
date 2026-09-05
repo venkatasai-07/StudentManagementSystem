@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
@@ -22,18 +23,39 @@ from .serializers import StudentSerializer
 @permission_classes([IsAuthenticated])
 def student_list(request):
 
-    # GET - View all students
+    # GET - View students with pagination
     if request.method == 'GET':
+
         students = Student.objects.all()
-        serializer = StudentSerializer(students, many=True)
-        return Response(serializer.data)
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 5
+
+        result_page = paginator.paginate_queryset(
+            students,
+            request
+        )
+
+        serializer = StudentSerializer(
+            result_page,
+            many=True
+        )
+
+        return paginator.get_paginated_response(
+            serializer.data
+        )
 
     # POST - Add student
     elif request.method == 'POST':
-        serializer = StudentSerializer(data=request.data)
+
+        serializer = StudentSerializer(
+            data=request.data
+        )
 
         if serializer.is_valid():
+
             serializer.save()
+
             return Response(
                 serializer.data,
                 status=status.HTTP_201_CREATED
@@ -54,6 +76,7 @@ def student_detail(request, pk):
         student = Student.objects.get(pk=pk)
 
     except Student.DoesNotExist:
+
         return Response(
             {"error": "Student not found"},
             status=status.HTTP_404_NOT_FOUND
@@ -62,9 +85,13 @@ def student_detail(request, pk):
     # GET - View one student
     if request.method == 'GET':
 
-        serializer = StudentSerializer(student)
+        serializer = StudentSerializer(
+            student
+        )
 
-        return Response(serializer.data)
+        return Response(
+            serializer.data
+        )
 
     # PUT/PATCH - Edit student
     elif request.method in ['PUT', 'PATCH']:
@@ -76,9 +103,12 @@ def student_detail(request, pk):
         )
 
         if serializer.is_valid():
+
             serializer.save()
 
-            return Response(serializer.data)
+            return Response(
+                serializer.data
+            )
 
         return Response(
             serializer.errors,
@@ -94,6 +124,8 @@ def student_detail(request, pk):
             {"message": "Student deleted successfully"},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
 @api_view(['POST'])
 def login(request):
 
